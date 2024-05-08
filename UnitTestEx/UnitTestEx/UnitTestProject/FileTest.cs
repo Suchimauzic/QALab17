@@ -1,8 +1,7 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using NUnit.Framework;
 using System;
+using System.Collections.Generic;
 using UnitTestEx;
-using Assert = NUnit.Framework.Assert;
 
 namespace UnitTestProject
 {
@@ -18,14 +17,20 @@ namespace UnitTestProject
         public double lenght;
 
         /* ПРОВАЙДЕР */
-        static object[] FilesData =
+        private static IEnumerable<object[]> FilesData
         {
-            new object[] {new File(FILE_PATH_STRING, CONTENT_STRING), FILE_PATH_STRING, CONTENT_STRING},
-            new object[] { new File(SPACE_STRING, SPACE_STRING), SPACE_STRING, SPACE_STRING}
-        };
+            get
+            {
+                return new[]
+                {
+                    new object[] { new File(FILE_PATH_STRING, CONTENT_STRING), FILE_PATH_STRING, CONTENT_STRING},
+                    new object[] { new File(SPACE_STRING, SPACE_STRING), SPACE_STRING, SPACE_STRING}
+                };
+            }
+        }
 
         /* Тестируем получение размера */
-        [Test, TestCaseSource(nameof(FilesData))]
+        [TestMethod, DynamicData(nameof(FilesData))]
         public void GetSizeTest(File newFile, String name, String content)
         {
             lenght = content.Length / 2;
@@ -34,11 +39,10 @@ namespace UnitTestProject
         }
 
         /* Тестируем получение имени */
-        [Test, TestCaseSource(nameof(FilesData))]
+        [TestMethod, DynamicData(nameof(FilesData))]
         public void GetFilenameTest(File newFile, String name, String content)
         {
             Assert.AreEqual(newFile.GetFilename(), name, NAME_EXCEPTION);
         }
-
     }
 }

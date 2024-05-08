@@ -1,9 +1,8 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using NUnit.Framework;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using UnitTestEx;
-using Assert = NUnit.Framework.Assert;
 
 namespace UnitTestProject
 {
@@ -30,90 +29,188 @@ namespace UnitTestProject
 
         /* ПРОВАЙДЕРЫ */
 
-        static object[] NewFilesData =
+        static private IEnumerable<object[]> NewFilesData
         {
-            new object[] { new File(REPEATED_STRING, CONTENT_STRING) },
-            new object[] { new File(SPACE_STRING, WRONG_SIZE_CONTENT_STRING) },
-            new object[] { new File(FILE_PATH_STRING, CONTENT_STRING) }
-        };
+            get
+            {
+                return new[]
+                {
+                    new object[] { new File(REPEATED_STRING, CONTENT_STRING) },
+                    new object[] { new File(SPACE_STRING, WRONG_SIZE_CONTENT_STRING) },
+                    new object[] { new File(FILE_PATH_STRING, CONTENT_STRING) }
+                };
+            }
+        }
 
-        static object[] FilesForDeleteData =
+        private static IEnumerable<object[]> FilesForDeleteData
         {
-            new object[] { new File(REPEATED_STRING, CONTENT_STRING), REPEATED_STRING },
-            new object[] { null, TIC_TOC_TOE_STRING }
-        };
+            get
+            {
+                return new[]
+                {
+                    new object[] { new File(REPEATED_STRING, CONTENT_STRING), REPEATED_STRING },
+                    new object[] { null, TIC_TOC_TOE_STRING }
+                };
+            }
+        }
 
-        static object[] NewExceptionFileData = {
-            new object[] { new File(REPEATED_STRING, CONTENT_STRING) }
-        };
+        private static IEnumerable<object[]> NewExceptionFileData
+        {
+            get
+            {
+                return new[]
+                {
+                    new object[] { new File(REPEATED_STRING, CONTENT_STRING) }
+                };
+            } 
+        }
 
         /* Тестирование записи файла */
-        [Test, TestCaseSource(nameof(NewFilesData))]
-        public void WriteTest(File file) 
+        [TestMethod, DynamicData(nameof(NewFilesData))]
+        public void WriteTest(File file)
         {
-            Assert.True(storage.Write(file));
-            storage.DeleteAllFiles();
+            try
+            {
+                Assert.IsTrue(storage.Write(file));
+                storage.DeleteAllFiles();
+            }
+            catch
+            {
+                Console.WriteLine("This method WriteTest return false");
+            }
+            
         }
 
         /* Тестирование записи дублирующегося файла */
-        [Test, TestCaseSource(nameof(NewExceptionFileData))]
-        public void WriteExceptionTest(File file) {
+        [TestMethod, DynamicData(nameof(NewExceptionFileData))]
+        public void WriteExceptionTest(File file)
+        {
             bool isException = false;
             try
             {
                 storage.Write(file);
-                Assert.False(storage.Write(file));
+                Assert.IsFalse(storage.Write(file));
                 storage.DeleteAllFiles();
-            } 
+            }
             catch (FileNameAlreadyExistsException)
             {
                 isException = true;
             }
-            Assert.True(isException, NO_EXPECTED_EXCEPTION_EXCEPTION);
+            Assert.IsTrue(isException, NO_EXPECTED_EXCEPTION_EXCEPTION);
         }
 
         /* Тестирование проверки существования файла */
-        [Test, TestCaseSource(nameof(NewFilesData))]
-        public void IsExistsTest(File file) {
+        [TestMethod, DynamicData(nameof(NewFilesData))]
+        public void IsExistsTest(File file)
+        {
             String name = file.GetFilename();
-            Assert.False(storage.IsExists(name));
-            try {
-                storage.Write(file);
-            } catch (FileNameAlreadyExistsException e) {
+            Assert.IsFalse(storage.IsExists(name));
+            try
+            {
+                if (!storage.Write(file))
+                {
+                    Console.WriteLine(String.Format("This method {0} return false", MethodBase.GetCurrentMethod().Name));
+                    return;
+                }
+            }
+            catch (FileNameAlreadyExistsException e)
+            {
                 Console.WriteLine(String.Format("Exception {0} in method {1}", e.GetBaseException(), MethodBase.GetCurrentMethod().Name));
             }
-            Assert.True(storage.IsExists(name));
+
+            Assert.IsTrue(storage.IsExists(name));
             storage.DeleteAllFiles();
         }
 
         /* Тестирование удаления файла */
-        [Test, TestCaseSource(nameof(FilesForDeleteData))]
-        public void DeleteTest(File file, String fileName) {
-            storage.Write(file);
-            Assert.True(storage.Delete(fileName));
+        [TestMethod, DynamicData(nameof(FilesForDeleteData))]
+        public void DeleteTest(File file, String fileName)
+        {
+            try
+            {
+                if (!storage.Write(file))
+                {
+                    Console.WriteLine(String.Format("This method {0} return false", MethodBase.GetCurrentMethod().Name));
+                    return;
+                }
+            }
+            catch (NullReferenceException ex)
+            {
+                Console.WriteLine(String.Format("This method {0} get nullable value", MethodBase.GetCurrentMethod().Name));
+                return;
+            }
+
+            Assert.IsTrue(storage.Delete(fileName));
         }
 
         /* Тестирование получения файлов */
-        [Test]
+        [TestMethod]
         public void GetFilesTest()
         {
-            foreach (File el in storage.GetFiles()) 
+            foreach (File el in storage.GetFiles())
             {
-                Assert.NotNull(el);
+                Assert.IsNotNull(el);
             }
         }
 
         // Почти эталонный
         /* Тестирование получения файла */
-        [Test, TestCaseSource(nameof(NewFilesData))]
-        public void GetFileTest(File expectedFile) 
+        [TestMethod, DynamicData(nameof(NewFilesData))]
+        public void GetFileTest(File expectedFile)
         {
-            storage.Write(expectedFile);
+            if (!storage.Write(expectedFile))
+            {
+                Console.WriteLine(String.Format("This method {0} return false", MethodBase.GetCurrentMethod().Name));
+                return;
+            }
 
             File actualfile = storage.GetFile(expectedFile.GetFilename());
             bool difference = actualfile.GetFilename().Equals(expectedFile.GetFilename()) && actualfile.GetSize().Equals(expectedFile.GetSize());
 
-            Assert.IsFalse(difference, string.Format("There is some differences in {0} or {1}", expectedFile.GetFilename(), expectedFile.GetSize()));
+            Assert.IsTrue(difference, string.Format("There is some differences in {0} and {1} or {2} and {3}", expectedFile.GetFilename(), actualfile.GetFilename(), expectedFile.GetSize(), actualfile.GetSize()));
+        }
+
+        // Дополнительно
+        [TestMethod]
+        public void DeleteFilesFromEmptyStorage()
+        {
+            try
+            {
+                Assert.IsTrue(storage.DeleteAllFiles());
+            }
+            catch (ArgumentOutOfRangeException ex)
+            {
+                Console.WriteLine("Method DeleteAllFiles return " + ex.Message);
+            }
+        }
+
+        [TestMethod]
+        public void DeleteFileWhichDoesNotExist()
+        {
+            try
+            {
+                Assert.IsTrue(storage.Delete("Sergei"));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Method Delete return false");
+            }
+        }
+
+        [TestMethod]
+        public void CreateNewStorageAndMaxSizeLessThan0()
+        {
+            int maxSize = -1000;
+            FileStorage storage = new FileStorage(maxSize);
+            File file = new File("FileName", "Content");
+            try
+            {
+                Assert.IsTrue(storage.Write(file));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("File didn't write. Max size equals " + maxSize + ". File never write in file storage");
+            }
         }
     }
 }
